@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="102c3bb1-346b-4633-a4c6-9dfe3bcc0da8" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="0cddd431-e2a1-4d3a-9304-f717596563c6" basePath="/data/2.5" >
+		<http:request-connection protocol="HTTPS" host="api.openweathermap.org" port="443" />
+	</http:request-config>
+	<import doc:name="Import" doc:id="cbe9b9af-de11-4b28-8dfd-4c75ea91bf25" file="health-monitoring-library.xml" />
+	<import doc:name="Import" doc:id="a7e2ea8f-74e7-4534-a70a-6588c2e62cc1" file="health-monitoring-implementation.xml" />
+	<configuration-properties doc:name="Configuration properties" doc:id="01484f5a-7e5d-45ef-a8e3-355c7bd34fa2" file="config\health-properties.yaml" />
+	<flow name="test-weather-apiFlow" doc:id="3a17ae1d-952a-4a66-b5ba-a19b5520eccb" >
+		<http:listener doc:name="Listener" doc:id="d05d69ce-6a74-48ca-831e-65859414fa3f" config-ref="HTTP_Listener_config" path="/api/weather" allowedMethods="GET"/>
+		<logger level="INFO" doc:name="Log start" doc:id="58c2e126-853e-4bd6-9a4d-f8079f0c0978" message="Getting weather from #[attributes.queryParams.zipCode]"/>
+		<http:request method="GET" doc:name="Request Weather API" doc:id="d7b1541e-c25d-4a4d-bbf3-db8c05344f0d" config-ref="HTTP_Request_configuration" path="/weather">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"appid" : p("appid"),
+	"zip" : attributes.queryParams.zipCode ++ ',' ++ attributes.queryParams.countryCode,
+	"units" : "metric"
+}]]]></http:query-params>
+		</http:request>
+		<ee:transform doc:name="Result to json" doc:id="5f2f0f03-1bb5-4a5c-bf7f-444ce7566d34" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"temp": payload.main.temp,
+	"description": payload.weather[0].description
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log end" doc:id="1d8fae24-635c-4d47-a055-e490d3992ecc" message="End process to get weather"/>
+	</flow>
+	<sub-flow name="test-weather-api-externalSub_Flow" doc:id="c120f0ba-bff1-4251-a67a-d2a95da895b7" >
+		<http:request method="GET" doc:name="Request" doc:id="87808d05-7e23-4e42-a475-ad62c5d31a4a" config-ref="HTTP_Request_configuration" path="/weather">
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"appid" : p("appid"),
+	"zip" : "75207,US",
+	"units" : "metric"
+}]]]></http:query-params>
+				<http:response-validator>
+					<http:success-status-code-validator values="200" />
+				</http:response-validator>
+		</http:request>
+	</sub-flow>
+</mule>

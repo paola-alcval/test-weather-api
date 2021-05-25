@@ -1,0 +1,5 @@
+health.http.config: "HTTP_Listener_config"
+apiVersion: "v1"
+env: "qa"
+thirdPartyFlows: "test-weather-api-externalSub_Flow"
+appid: "dummy"
